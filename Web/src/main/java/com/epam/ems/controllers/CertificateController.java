@@ -18,7 +18,7 @@ import static org.springframework.http.HttpStatus.OK;
 
 @Validated
 @RestController
-@RequestMapping("/certificates")
+@RequestMapping("/epam/certificates")
 public class CertificateController {
 
     @Autowired
