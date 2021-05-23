@@ -1,8 +1,6 @@
 package com.epam.ems.exceptions;
 
-public class MissingHeaderException extends RuntimeException{
-    public MissingHeaderException() {
-    }
+public class MissingHeaderException extends RuntimeException {
 
     public MissingHeaderException(String message) {
         super(message);

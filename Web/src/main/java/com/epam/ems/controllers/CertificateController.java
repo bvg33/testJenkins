@@ -1,52 +1,76 @@
 package com.epam.ems.controllers;
 
-import com.epam.ems.dto.Tag;
-import com.epam.ems.exceptions.DaoException;
-import com.epam.ems.service.Service;
 import com.epam.ems.dto.Certificate;
+import com.epam.ems.dto.lists.CertificateList;
+import com.epam.ems.hateoas.CertificatesControllerHateoas;
+import com.epam.ems.service.CRUDService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.hateoas.RepresentationModel;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.util.MultiValueMap;
+import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import java.util.List;
+import javax.validation.constraints.Min;
 
+import static org.springframework.http.HttpStatus.OK;
+
+@Validated
 @RestController
 @RequestMapping("/certificates")
 public class CertificateController {
+
     @Autowired
-    private Service<Certificate> service;
+    private CRUDService<Certificate> service;
+
+    @Autowired
+    private CertificatesControllerHateoas hateoas;
 
     @GetMapping
-    public List<Certificate> getAllCertificates() {
-        return service.getAll();
+    public ResponseEntity<CertificateList> getAllCertificates(@Min(1) @RequestParam int page,
+                                                              @Min(1) @RequestParam int elements) {
+        CertificateList list = new CertificateList(service.getAll(page, elements));
+        hateoas.createHateoas(list);
+        return ResponseEntity.status(OK).body(list);
     }
 
     @GetMapping("/{id}")
-    public Certificate getCertificateById(@PathVariable int id) throws Exception {
-        return service.getById(id);
+    public ResponseEntity<Certificate> getCertificateById(@Min(1) @PathVariable int id) {
+        Certificate certificate = service.getById(id);
+        hateoas.createHateoas(certificate);
+        return ResponseEntity.status(OK).body(certificate);
     }
 
     @DeleteMapping("/{id}")
-    public String deleteCertificate(@PathVariable int id) throws DaoException {
+    public ResponseEntity deleteCertificate(@Min(1) @PathVariable int id) {
         service.deleteById(id);
-        return "Certificate was successfully deleted";
+        RepresentationModel model = new RepresentationModel();
+        hateoas.createHateoas(model);
+        return ResponseEntity.status(HttpStatus.NO_CONTENT).body(model);
     }
 
     @PostMapping("/new")
-    public String addCertificate(@RequestParam MultiValueMap<String, String> allRequestParams) {
-        service.update(allRequestParams);
-        return "Certificate was successfully added";
+    public ResponseEntity addCertificate(@RequestBody Certificate certificate) {
+        service.insertIntoDB(certificate);
+        RepresentationModel model = new RepresentationModel();
+        hateoas.createHateoas(model);
+        return ResponseEntity.status(HttpStatus.CREATED).body(model);
     }
 
     @PatchMapping("/update/{id}")
-    public String updateCertificate(@PathVariable int id, @RequestParam MultiValueMap<String, String> allRequestParams) {
-        allRequestParams.add("id", String.valueOf(id));
-        service.update(allRequestParams);
-        return "Certificate was successfully updated";
+    public ResponseEntity updateCertificate(@Min(1) @PathVariable int id, @RequestBody Certificate certificate) {
+        service.update(certificate, id);
+        RepresentationModel model = new RepresentationModel();
+        hateoas.createHateoas(model);
+        return ResponseEntity.status(HttpStatus.CREATED).body(model);
     }
 
     @GetMapping("/filter")
-    public List<Certificate> filter(@RequestParam MultiValueMap<String, String> allRequestParams) {
-        return service.doFilter(allRequestParams);
+    public ResponseEntity filter(@Min(1) @RequestParam int page, @Min(1) @RequestParam int elements,
+                                 @RequestParam MultiValueMap<String, String> allRequestParams) {
+        CertificateList list = new CertificateList(service.doFilter(allRequestParams, page, elements));
+        hateoas.createHateoas(list);
+        return ResponseEntity.status(OK).body(list);
     }
 }

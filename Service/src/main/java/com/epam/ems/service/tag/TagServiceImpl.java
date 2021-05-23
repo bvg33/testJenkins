@@ -1,59 +1,51 @@
 package com.epam.ems.service.tag;
 
-import com.epam.ems.dao.Dao;
+import com.epam.ems.dao.CRDDao;
 import com.epam.ems.dto.Tag;
-import com.epam.ems.logic.creator.Creator;
 import com.epam.ems.service.AbstractService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 import org.springframework.util.MultiValueMap;
 
 import java.util.ArrayList;
 import java.util.List;
 
-@org.springframework.stereotype.Service
+import static com.epam.ems.dto.fields.Constant.SORT_BY_NAME;
+
+
+@Service
 public class TagServiceImpl extends AbstractService<Tag> {
 
-    private Dao<Tag> dao;
-
-    private static final String SORT_BY_NAME_PARAM = "sortByName";
-
-    private Creator<Tag> creator;
+    private CRDDao<Tag> dao;
 
     @Autowired
-    public TagServiceImpl(Dao<Tag> dao, Creator<Tag> creator) {
+    public TagServiceImpl(CRDDao<Tag> dao) {
         super(dao);
         this.dao = dao;
-        this.creator=creator;
     }
 
     @Override
-    public void update(MultiValueMap<String, String> allRequestParams) {
-        Tag tag = creator.createObject(allRequestParams);
-        dao.save(tag);
-    }
-
-    @Override
-    public List<Tag> doFilter(MultiValueMap<String, String> allRequestParams) {
-        List<Tag> sortedByParam = getTagsSortedByNames(allRequestParams);
-        List<Tag> foundByTagNames = findByTagNames(allRequestParams);
-        List<Tag> foundByPartOfName = findByPartOfName(allRequestParams);
+    public List<Tag> doFilter(MultiValueMap<String, String> allRequestParams, int page, int elements) {
+        List<Tag> sortedByParam = getTagsSortedByNames(allRequestParams, page, elements);
+        List<Tag> foundByTagNames = findByTagNames(allRequestParams, page, elements);
+        List<Tag> foundByPartOfName = findByPartOfName(allRequestParams, page, elements);
         List<Tag> foundedTags = new ArrayList<>();
-        fillListIfEmpty(foundByPartOfName, foundByTagNames,sortedByParam);
+        fillListIfEmpty(foundByPartOfName, foundByTagNames, sortedByParam);
         foundByTagNames.stream().filter(foundByPartOfName::contains).
                 forEach(foundedTags::add);
-        if (sortedByParam.isEmpty()) {
-            return foundedTags;
+        if (!sortedByParam.isEmpty()) {
+            sortedByParam.retainAll(foundedTags);
+            foundedTags = sortedByParam;
         }
-        sortedByParam.retainAll(foundedTags);
-        return sortedByParam;
+        return foundedTags;
     }
 
-    private List<Tag> getTagsSortedByNames(MultiValueMap<String, String> allRequestParams) {
-        String sortType = getFilteredList(SORT_BY_NAME_PARAM, allRequestParams);
+    private List<Tag> getTagsSortedByNames(MultiValueMap<String, String> allRequestParams, int page, int elements) {
+        String sortType = getParameter(SORT_BY_NAME, allRequestParams);
+        List<Tag> sortedList = new ArrayList<>();
         if (!sortType.isEmpty()) {
-            return dao.getEntitiesSortedByParameter(sortType, SORT_BY_NAME_PARAM);
-        } else {
-            return new ArrayList<>();
+            sortedList = dao.getEntitiesSortedByParameter(sortType, SORT_BY_NAME, page, elements);
         }
+        return sortedList;
     }
 }

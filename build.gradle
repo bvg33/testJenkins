@@ -1,16 +1,41 @@
-subprojects {
-    apply plugin:'java'
+buildscript {
+    repositories {
+        mavenCentral()
+    }
     dependencies {
-        compile group: 'org.springframework', name: 'spring-context', version: '5.2.12.RELEASE'
+        classpath "org.sonarsource.scanner.gradle:sonarqube-gradle-plugin:2.7"
+    }
+}
+allprojects {
+    apply plugin: 'java'
+    apply plugin: 'jacoco'
+    apply plugin: 'org.sonarqube'
+    dependencies {
+        compile group: 'org.springframework.boot', name: 'spring-boot-starter-web', version: '2.4.4'
+        compile group: 'org.springframework.boot', name: 'spring-boot-starter-hateoas', version: '2.2.7.RELEASE'
         testImplementation(platform('org.junit:junit-bom:5.7.1'))
         testImplementation('org.junit.jupiter:junit-jupiter')
         testImplementation group: 'org.mockito', name: 'mockito-junit-jupiter', version: '3.8.0'
         testImplementation group: 'org.springframework', name: 'spring-test', version: '5.3.5'
+        compile group: 'org.springframework.boot', name: 'spring-boot-starter-validation', version: '2.4.4'
+        testImplementation group: 'org.springframework.boot', name: 'spring-boot-starter-test', version: '2.4.5'
+        testImplementation group: 'org.hsqldb', name: 'hsqldb', version: '2.5.1'
+        compile group: 'org.springframework', name: 'spring-orm', version: '5.3.5'
+        compile group: 'com.zaxxer', name: 'HikariCP', version: '4.0.3'
+        compileOnly 'org.projectlombok:lombok:1.18.20'
+        annotationProcessor 'org.projectlombok:lombok:1.18.20'
+        compile group: 'org.springframework.boot', name: 'spring-boot-starter-security', version: '2.4.5'
 
     }
     group 'com.epam.ems'
     version 'v-1'
     test {
         useJUnitPlatform()
+    }
+    repositories {
+        mavenCentral()
+    }
+    plugins.withType(JacocoPlugin) {
+        tasks["test"].finalizedBy 'jacocoTestReport'
     }
 }

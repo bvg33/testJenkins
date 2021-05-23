@@ -1,33 +1,56 @@
 package com.epam.ems.config;
 
-import org.apache.commons.dbcp.BasicDataSource;
-import org.springframework.beans.factory.annotation.Qualifier;
+
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
+import org.hibernate.SessionFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.env.Environment;
+import org.springframework.jdbc.datasource.DriverManagerDataSource;
+import org.springframework.orm.hibernate5.HibernateTransactionManager;
+import org.springframework.orm.hibernate5.LocalSessionFactoryBean;
 
 import javax.sql.DataSource;
+import java.util.Properties;
 
 @Configuration
 public class MySqlDataBaseConfig {
-    private static final String DRIVER = "com.mysql.jdbc.Driver";
-    private static final String URL = "jdbc:mysql://localhost:3306/EPAM";
-    private static final String USERNAME = "root";
-    private static final String PASSWORD = "as122592as";
-    private static final int MIN_IDLE = 5;
-    private static final int MAX_IDLE = 10;
-    private static final int MAX_OPEN_PREPARE_STATEMENTS = 100;
 
-    @Bean
-    @Qualifier(value = "mySql")
-    public DataSource mysqlDataSource() {
-        BasicDataSource ds = new BasicDataSource();
-        ds.setDriverClassName(DRIVER);
-        ds.setUrl(URL);
-        ds.setUsername(USERNAME);
-        ds.setPassword(PASSWORD);
-        ds.setMinIdle(MIN_IDLE);
-        ds.setMaxIdle(MAX_IDLE);
-        ds.setMaxOpenPreparedStatements(MAX_OPEN_PREPARE_STATEMENTS);
-        return ds;
+    @Autowired
+    private Environment env;
+
+    @Bean(name = "dataSource")
+    public DataSource getDataSource() {
+        HikariConfig config = new HikariConfig();
+        config.setJdbcUrl(env.getProperty("spring.datasource.url"));
+        config.setUsername(env.getProperty("spring.datasource.username"));
+        config.setPassword(env.getProperty("spring.datasource.password"));
+        config.setMaximumPoolSize(100);
+        return new HikariDataSource(config);
     }
+
+    @Bean(name = "sessionFactory")
+    public SessionFactory getSessionFactory(DataSource dataSource) throws Exception {
+        Properties properties = new Properties();
+        properties.put("hibernate.dialect", env.getProperty("spring.jpa.properties.hibernate.dialect"));
+        properties.put("hibernate.show_sql", env.getProperty("spring.jpa.show-sql"));
+        properties.put("current_session_context_class", env.getProperty("spring.jpa.properties.hibernate.current_session_context_class"));
+        LocalSessionFactoryBean factoryBean = new LocalSessionFactoryBean();
+        factoryBean.setPackagesToScan(new String[]{"com.epam.ems"});
+        factoryBean.setDataSource(dataSource);
+        factoryBean.setHibernateProperties(properties);
+        factoryBean.afterPropertiesSet();
+        SessionFactory sf = factoryBean.getObject();
+        return sf;
+    }
+
+    @Bean(name = "transactionManager")
+    public HibernateTransactionManager getTransactionManager(SessionFactory sessionFactory) {
+        HibernateTransactionManager transactionManager = new HibernateTransactionManager(sessionFactory);
+        return transactionManager;
+    }
+
+
 }

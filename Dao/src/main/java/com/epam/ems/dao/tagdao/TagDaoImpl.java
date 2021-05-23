@@ -1,82 +1,113 @@
 package com.epam.ems.dao.tagdao;
 
-import com.epam.ems.dao.Dao;
-import com.epam.ems.dao.mapper.TagRowMapper;
+import com.epam.ems.dao.CRDDao;
 import com.epam.ems.dto.Tag;
-import com.epam.ems.exceptions.DaoException;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.dao.DataAccessException;
-import org.springframework.jdbc.core.JdbcTemplate;
-import org.springframework.stereotype.Repository;
+import org.springframework.stereotype.Component;
 
-import javax.sql.DataSource;
+import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaDelete;
+import javax.persistence.criteria.CriteriaQuery;
+import javax.persistence.criteria.Root;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
-@Repository
-public class TagDaoImpl implements Dao<Tag> {
+import static com.epam.ems.dto.fields.Constant.*;
 
-    private static JdbcTemplate TEMPLATE;
-    private static final String GET_BY_ID_QUERY = "select * from epam.tag where id=?";
-    private static final String GET_ALL_QUERY = "select * from epam.tag";
-    private static final String INSERT_QUERY = "insert into epam.tag (tag_name) values (?)";
-    private static final String DELETE_QUERY = "delete from epam.tag where id=?";
-    private static final String GET_BY_NAME_QUERY = "select * from epam.tag where tag_name=?";
-    private static final String GET_ALL_SORTED_BY_NAME = "select * from epam.tag t order by t.tag_name ";
-    private static final String GET_BY_NAME_PART = "select * from epam.tag where tag_name like ";
-    private static final String SORT_BY_MAME_PARAM = "sortByName";
+@Component
+public class TagDaoImpl implements CRDDao<Tag> {
+
+    private EntityManagerFactory entityManagerFactory;
 
     @Autowired
-    public TagDaoImpl(@Qualifier(value = "mySql") DataSource dataSource, TagRowMapper rowMapper) {
-        TEMPLATE = new JdbcTemplate(dataSource);
-        this.tagRowMapper = rowMapper;
+    public TagDaoImpl(EntityManagerFactory entityManagerFactory) {
+        this.entityManagerFactory = entityManagerFactory;
     }
 
-    private TagRowMapper tagRowMapper;
-
-    @Override
-    public Tag getById(int id) throws Exception {
-        try {
-            return TEMPLATE.queryForObject(GET_BY_ID_QUERY, new Object[]{id}, tagRowMapper);
-        } catch (DataAccessException exception) {
-            throw new DaoException("there is no tag with current id=" + id);
-        }
+    public Tag getById(int id) {
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        return entityManager.find(Tag.class, id);
     }
 
-    @Override
-    public List<Tag> getAll() {
-        return TEMPLATE.query(GET_ALL_QUERY, tagRowMapper);
+    public List<Tag> getByTagName(String name, int page, int elements) {
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tag> criteriaQuery = criteriaBuilder.createQuery(Tag.class);
+        Root<Tag> root = criteriaQuery.from(Tag.class);
+        criteriaQuery.where(criteriaBuilder.equal(root.get(TAG_NAME), name));
+        return entityManager
+                .createQuery(criteriaQuery)
+                .setMaxResults(elements)
+                .setFirstResult((page - 1) * elements)
+                .getResultList();
     }
 
-
-    @Override
-    public void save(Tag item) {
-        TEMPLATE.update(INSERT_QUERY, item.getTagName());
+    public List<Tag> getByNamePart(String name, int page, int elements) {
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+        String newName = "%" + name + "%";
+        CriteriaQuery<Tag> criteriaQuery = criteriaBuilder.createQuery(Tag.class);
+        Root<Tag> root = criteriaQuery.from(Tag.class);
+        criteriaQuery.where(criteriaBuilder.like(root.get(TAG_NAME), newName));
+        return entityManager
+                .createQuery(criteriaQuery)
+                .setMaxResults(elements)
+                .setFirstResult((page - 1) * elements)
+                .getResultList();
     }
 
-    @Override
-    public void removeById(int id)  {
-        TEMPLATE.update(DELETE_QUERY, new Object[]{id});
+    public List<Tag> getAll(int page, int elements) {
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+        CriteriaQuery<Tag> criteriaQuery = criteriaBuilder.createQuery(Tag.class);
+        Root<Tag> root = criteriaQuery.from(Tag.class);
+        criteriaQuery.select(root);
+        return entityManager.createQuery(criteriaQuery)
+                .setFirstResult((page - 1) * elements)
+                .setMaxResults(elements)
+                .getResultList();
     }
 
-    @Override
-    public List<Tag> getByTagName(String name) {
-        return TEMPLATE.query(GET_BY_NAME_QUERY, new Object[]{name}, tagRowMapper);
+    public void removeById(int id) {
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+        CriteriaDelete<Tag> criteriaDelete = criteriaBuilder.createCriteriaDelete(Tag.class);
+        Root<Tag> root = criteriaDelete.from(Tag.class);
+        criteriaDelete.where(criteriaBuilder.equal(root.get(TAG_ID), id));
+        entityManager.getTransaction().begin();
+        entityManager.createQuery(criteriaDelete).executeUpdate();
+        entityManager.getTransaction().commit();
     }
 
-    @Override
-    public List<Tag> getEntitiesSortedByParameter(String sortType, String param) {
-        if (param == SORT_BY_MAME_PARAM) {
-            return TEMPLATE.query(GET_ALL_SORTED_BY_NAME + sortType, tagRowMapper);
+    public void insert(Tag item) {
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        entityManager.getTransaction().begin();
+        entityManager.persist(item);
+        entityManager.getTransaction().commit();
+    }
+
+    public List<Tag> getEntitiesSortedByParameter(String sortType, String param, int page, int elements) {
+        EntityManager entityManager = entityManagerFactory.createEntityManager();
+        CriteriaBuilder criteriaBuilder = entityManager.getCriteriaBuilder();
+        if (param == SORT_BY_NAME) {
+            CriteriaQuery<Tag> criteriaQuery = criteriaBuilder.createQuery(Tag.class);
+            Root<Tag> root = criteriaQuery.from(Tag.class);
+            chooseSortType(sortType, criteriaQuery, root, criteriaBuilder);
+            return entityManager.createQuery(criteriaQuery)
+                    .setFirstResult((page - 1) * elements)
+                    .setMaxResults(elements)
+                    .getResultList();
         }
         return new ArrayList<>();
     }
 
-    @Override
-    public List<Tag> getByNamePart(String parameter) {
-        String newParameter = "%" + parameter + "%";
-        return TEMPLATE.query(GET_BY_NAME_PART + "\'" + newParameter + "\'", tagRowMapper);
+    private void chooseSortType(String sortType, CriteriaQuery<Tag> criteriaQuery, Root<Tag> root, CriteriaBuilder criteriaBuilder) {
+        if (sortType.equals(DESC_SORT)) {
+            criteriaQuery.orderBy(criteriaBuilder.desc(root.get(TAG_NAME)));
+        } else if (sortType.equals(ASC_SORT)) {
+            criteriaQuery.orderBy(criteriaBuilder.asc(root.get(TAG_NAME)));
+        }
     }
 }

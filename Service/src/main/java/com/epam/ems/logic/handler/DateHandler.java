@@ -11,9 +11,11 @@ import static java.time.format.DateTimeFormatter.ofPattern;
 
 @Component
 public class DateHandler {
+    private static final String PATTERN = "yyyy-MM-dd'T'HH:mm";
+
     public String getCurrentDate() {
         LocalDateTime localDateTime = now();
-        DateTimeFormatter formatter = ofPattern("yyyy-MM-dd'T'HH:mm", Locale.UK);
+        DateTimeFormatter formatter = ofPattern(PATTERN, Locale.UK);
         return formatter.format(localDateTime);
     }
 }
